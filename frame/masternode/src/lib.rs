@@ -42,6 +42,11 @@ pub mod weights;
 use sp_core::crypto::KeyTypeId;
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
 
+use frame_support::{
+	pallet_prelude::*,
+	traits::{fungible, tokens::BalanceConversion},
+};
+
 pub mod crypto {
 	use super::KEY_TYPE;
 	use sp_runtime::app_crypto::{app_crypto, sr25519};
@@ -53,7 +58,7 @@ pub type AuthorityId = crypto::Public;
 pub use pallet::*;
 
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchResult, traits::{Currency, LockableCurrency, ReservableCurrency, UnixTime}};
+use frame_support::{dispatch::DispatchResult, RuntimeDebug, traits::{Currency, LockableCurrency, ReservableCurrency, UnixTime}};
 use frame_system::{self as system};
 use pallet_node_authorization::StorageInterface;
 use sp_core::OpaquePeerId;
@@ -61,18 +66,8 @@ pub use sp_std::vec::Vec;
 use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*, string::String};
 pub use weights::WeightInfo;
 
-pub use traits::{MasternodeDetails};//, MasternodeStorage};
-pub mod traits;
-
-/*
-#[cfg(feature = "std")]
-use serde;
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "std")]
-use serde_json;
-*/
+//pub use traits::{MasternodeDetails};//, MasternodeStorage};
+//pub mod traits;
 
 use sp_std::serde_json;
 use sp_std::serde::{Deserialize, Serialize};
@@ -81,44 +76,36 @@ use sp_std::bs58;
 /// The balance type of this pallet.
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-/*
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
-*/
 
-/*
-#[cfg_attr(feature = "std", derive(Deserialize, Encode, Decode, Default))]
-struct GithubInfo {
-	// Specify our own deserializing function to convert JSON string to vector of bytes
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	login: Vec<u8>,
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	blog: Vec<u8>,
-	public_repos: u32,
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, Serialize, Deserialize)]
+pub enum MasternodeStatus {
+	OnLine,
+	OffLine,
 }
 
-pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
-	where
-		D: Deserializer<'de>,
-{
-	let s: &str = Deserialize::deserialize(de)?;
-	Ok(s.as_bytes().to_vec())
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, Serialize, Deserialize)]
+pub struct MasternodeDetails<AccountId, BlockNumber> {
+	pub owner: AccountId,
+	pub created_block_number: BlockNumber,
+	pub updated_block_number: BlockNumber,
+	pub status: MasternodeStatus,
 }
-*/
+
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, Serialize, Deserialize)]
+pub struct MasternodeInfo {
+	pub total_nums: u16,
+	pub online_nums: u16,
+	//pub peers_id: Vec<OpaquePeerId>,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	// use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	use pallet_node_authorization::traits::StorageInterface;
 
-	use crate::traits::MasternodeStatus;
 	use frame_system::offchain::{
 		AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload, Signer,
 		SigningTypes,
@@ -127,7 +114,7 @@ pub mod pallet {
 	use sp_core::offchain::OpaqueNetworkState;
 	use sp_runtime::traits::IdentifyAccount;
 	use sp_runtime::offchain::{http, Duration};
-	
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::without_storage_info]
@@ -151,14 +138,14 @@ pub mod pallet {
 	}
 
 	#[derive(Serialize, Deserialize)]
-	struct RpcResult {
+	pub struct RpcResult {
 		jsonrpc:String,
 		result:Vec<PeerInfo>,
 		id: u32,
 	}
 
 	#[derive(Serialize, Deserialize)]
-	struct PeerInfo {
+	pub struct PeerInfo {
 		peerId: String,
 		roles: String,
 		bestHash: String,
@@ -439,19 +426,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/*
-		#[pallet::weight((T::WeightInfo::send_masternode_heartbeat(), DispatchClass::Operational))]
-		pub fn get_masternodes (
-			origin: OriginFor<T>,
-			peer_id: OpaquePeerId,
-		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
-
-			let masternode_details = Masternodes::<T>::get(peer_id);
-			Ok(masternode_details.try_into().unwrap_or(0))
-		}
-		*/
-
 		#[pallet::weight((T::WeightInfo::send_masternode_heartbeat(), DispatchClass::Operational))]
 		pub fn send_masternode_heartbeat(
 			origin: OriginFor<T>,
@@ -553,7 +527,7 @@ pub mod pallet {
             Ok(ret.result)
         }
 
-		pub fn get_port(port: u16) -> String {
+		fn get_port(port: u16) -> String {
 			let mut v = port;
 			let mut bstart = false;
 			let ps = vec![10000u16,1000u16,100u16,10u16,1u16];
@@ -570,6 +544,31 @@ pub mod pallet {
 				}
 			}
 			String::from_utf8(ret).expect("Found invalid UTF-8")
+		}
+
+		pub fn get_status(peer_id: OpaquePeerId) -> u16 {
+			10u16
+		}
+
+		pub fn get_info() -> MasternodeInfo {
+			let block_number:u32 = system::Pallet::<T>::block_number().try_into().unwrap_or(0);
+			let nodes = RegisterMasternodes::<T>::get();
+			let total_nums:u16 = nodes.len() as u16;
+			let mut online_nums:u16 = 0;
+
+			for node in nodes.into_iter() {
+				if let Some(masternode_details) = Masternodes::<T>::get(&node) {
+					let number:u32 = masternode_details.updated_block_number.try_into().unwrap_or(0);
+					if block_number <= number + 600 {
+						online_nums += 1;
+					}
+				}
+			}
+			MasternodeInfo{
+				total_nums,
+				online_nums,
+				//peers_id: nodes,
+			}
 		}
     }
 }

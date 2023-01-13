@@ -27,6 +27,9 @@ sp-std = { version = "4.0.0", git = "https://github.com/John-Tonny/substrate", b
 # Frontier
 fp-evm = { version = "3.0.0-dev", path = "../../primitives/evm", default-features = false }
 
+pallet-masternode = { version = "1.0.0", default-features = false, path = "../../frame/masternode" }
+
+
 [features]
 default = ["std"]
 std = [
@@ -43,4 +46,5 @@ std = [
 	"sp-std/std",
 	# Frontier
 	"fp-evm/std",
+	"pallet-masternode/std",
 ]

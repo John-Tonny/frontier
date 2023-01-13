@@ -30,8 +30,9 @@ sp-std = { version = "4.0.0", git = "https://github.com/John-Tonny/substrate", b
 # Node Authorization
 #pallet-node-authorization = { default-features = false, version = "4.0.0-dev", git = "https://github.com/John-Tonny/substrate.git", branch = "polkadot-v0.9.27a" }
 pallet-node-authorization = {version = "4.0.0-dev", path = "../../frame/node-authorization", default-features = false }
+fp-masternode = {version = "1.0.0", path = "../../primitives/masternode", default-features = false }
 
-lite-json = { version = "0.2.0", default-features = false }
+#lite-json = { version = "0.2.0", default-features = false }
 
 serde = { version = "1.0.136", features = ["derive"], default_features = false }
 
@@ -52,5 +53,7 @@ std = [
 	"log/std",
 	"pallet-node-authorization/std",
 	#"lite-json/std",
+
+	"fp-masternode/std",
 ]
 try-runtime = ["frame-support/try-runtime"]

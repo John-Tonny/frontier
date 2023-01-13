@@ -16,25 +16,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Web3 rpc interface.
+//! Masternode rpc interface.
 
-use ethereum_types::H256;
 use jsonrpsee::{core::RpcResult as Result, proc_macros::rpc};
 
-use crate::types::Bytes;
 use sp_core::OpaquePeerId;
 
-// use fp_masternode::{MasternodeDetails, MasternodeInfo};
-
+use pallet_masternode::{MasternodeInfo};
 
 /// Masternode rpc interface.
 #[rpc(server)]
 pub trait MasternodeApi {
-	/// Returns current client version.
-	#[method(name = "masternode_clientVersion")]
-	fn client_version(&self) -> Result<String>;
+	/// Returns masternode status.
+	#[method(name = "masternode_status")]
+	fn get_status(&self, peer_id: OpaquePeerId) -> Result<u16>;
 
-	/// Returns sha3 of the given data
-	#[method(name = "masternode_sha3")]
-	fn sha3(&self, input: Bytes) -> Result<H256>;
+	/// Returns masternode info.
+	#[method(name = "masternode_info")]
+	fn get_info(&self) -> Result<MasternodeInfo>;
 }

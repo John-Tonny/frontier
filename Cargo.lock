@@ -1693,6 +1693,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "lru",
+ "pallet-masternode",
  "parity-scale-codec",
  "prometheus",
  "rand 0.8.5",
@@ -1726,6 +1727,7 @@ dependencies = [
  "ethereum",
  "ethereum-types",
  "jsonrpsee",
+ "pallet-masternode",
  "rlp",
  "rustc-hex",
  "serde",
@@ -1908,6 +1910,7 @@ dependencies = [
  "ethereum",
  "ethereum-types",
  "fp-evm",
+ "pallet-masternode",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -3773,24 +3776,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4d2456c373231a208ad294c33dc5bff30051eafd954cd4caae83a712b12854d"
 
 [[package]]
-name = "lite-json"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd0e787ffe1153141a0f6f6d759fdf1cc34b1226e088444523812fd412a5cca2"
-dependencies = [
- "lite-parser",
-]
-
-[[package]]
-name = "lite-parser"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d5f9dc37c52d889a21fd701983d02bb6a84f852c5140a6c80ef4557f7dc29e"
-dependencies = [
- "paste",
-]
-
-[[package]]
 name = "lock_api"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4701,9 +4686,9 @@ dependencies = [
 name = "pallet-masternode"
 version = "1.0.0"
 dependencies = [
+ "fp-masternode",
  "frame-support",
  "frame-system",
- "lite-json",
  "log",
  "pallet-node-authorization",
  "parity-scale-codec",

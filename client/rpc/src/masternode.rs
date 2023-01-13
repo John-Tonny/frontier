@@ -33,6 +33,8 @@ use fp_rpc::EthereumRuntimeRPCApi;
 
 use crate::internal_err;
 
+use pallet_masternode::{MasternodeInfo};
+
 /// Masternode API implementation.
 pub struct Masternode<B, C> {
 	client: Arc<C>,
@@ -54,25 +56,25 @@ where
 	C: HeaderBackend<B> + ProvideRuntimeApi<B> + Send + Sync + 'static,
 	C::Api: EthereumRuntimeRPCApi<B>,
 {
-	fn client_version(&self) -> Result<String> {
+	fn get_status(&self, peer_id: OpaquePeerId) -> Result<u16> {
 		let hash = self.client.info().best_hash;
-		let version = self
+		let ret = self
 			.client
 			.runtime_api()
-			.version(&BlockId::Hash(hash))
-			.map_err(|err| internal_err(format!("fetch runtime version failed: {:?}", err)))?;
-		Ok(format!(
-			"{spec_name}/v{spec_version}.{impl_version}/{pkg_name}-{pkg_version}",
-			spec_name = version.spec_name,
-			spec_version = version.spec_version,
-			impl_version = version.impl_version,
-			pkg_name = env!("CARGO_PKG_NAME"),
-			pkg_version = env!("CARGO_PKG_VERSION")
-		))
+			.get_status(&BlockId::Hash(hash), peer_id)
+			.map_err(|err| internal_err(format!("fetch runtime masternode status failed: {:?}", err)))?;
+		Ok(ret)
 	}
 
-	fn sha3(&self, input: Bytes) -> Result<H256> {
-		Ok(H256::from(keccak_256(&input.into_vec())))
+	fn get_info(&self) -> Result<MasternodeInfo> {
+		let hash = self.client.info().best_hash;
+		let ret = self
+			.client
+			.runtime_api()
+			.get_info(&BlockId::Hash(hash))
+			.map_err(|err| internal_err(format!("fetch runtime masternode info failed: {:?}", err)))?;
+		Ok(ret)
 	}
+
 
 }

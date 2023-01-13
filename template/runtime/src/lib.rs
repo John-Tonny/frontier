@@ -15,6 +15,7 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId},
 	OpaqueMetadata, H160, H256, U256,
+	OpaquePeerId,
 };
 use sp_runtime::{
 	create_runtime_str,
@@ -45,6 +46,8 @@ use pallet_evm::{
 	Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, GasWeightMapping,
 	HashedAddressMapping, Runner,
 };
+
+use pallet_masternode::{MasternodeInfo};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -722,12 +725,17 @@ impl_runtime_apis! {
     
 	impl fp_masternode::MasternodeRuntimeRPCApi<Block> for Runtime {
 		fn version() -> u64 {
-			let  _bb = <pallet_masternode::Pallet<Runtime>>::get_port(9933u16);
 			<Runtime as pallet_evm::Config>::ChainId::get()
 		}
     }
     
 	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
+		fn get_status(peer_id: OpaquePeerId) -> u16 {
+			<pallet_masternode::Pallet<Runtime>>::get_status(peer_id)
+		}
+		fn get_info() -> MasternodeInfo {
+			<pallet_masternode::Pallet<Runtime>>::get_info()
+		}
 
 		fn chain_id() -> u64 {
 			<Runtime as pallet_evm::Config>::ChainId::get()

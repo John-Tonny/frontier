@@ -22,3 +22,5 @@ jsonrpsee = { version = "0.14.0", features = ["server", "macros"] }
 rlp = "0.5"
 
 sp-core = { version = "6.0.0", git = "https://github.com/John-Tonny/substrate", branch = "polkadot-v0.9.27a" }
+pallet-masternode = { version = "1.0.0", default-features = false, path = "../../frame/masternode" }
+
