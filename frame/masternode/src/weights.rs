@@ -29,6 +29,8 @@ pub trait WeightInfo {
 	fn unregister_masternode() -> Weight;
 	fn remove_masternode() -> Weight;
 	fn do_something() -> Weight;
+	fn send_masternode_heartbeat() -> Weight;
+	fn get_masternode() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -36,4 +38,6 @@ impl WeightInfo for () {
 	fn unregister_masternode() -> Weight { 50_000_000 }
 	fn remove_masternode() -> Weight { 50_000_000 }
 	fn do_something() -> Weight { 50_000_000 }
+	fn send_masternode_heartbeat() -> Weight { 50_000_000 }
+	fn get_masternode() -> Weight { 50_000_000 }
 }

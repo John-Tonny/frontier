@@ -39,16 +39,75 @@
 
 pub mod weights;
 
+use sp_core::crypto::KeyTypeId;
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
+
+pub mod crypto {
+	use super::KEY_TYPE;
+	use sp_runtime::app_crypto::{app_crypto, sr25519};
+	app_crypto!(sr25519, KEY_TYPE);
+}
+
+pub type AuthorityId = crypto::Public;
+
 pub use pallet::*;
 
-use frame_support::traits::UnixTime;
-use sp_core::OpaquePeerId as PeerId;
-// use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
+use codec::{Decode, Encode};
+use frame_support::{dispatch::DispatchResult, traits::{Currency, LockableCurrency, ReservableCurrency, UnixTime}};
+use frame_system::{self as system};
+use pallet_node_authorization::StorageInterface;
+use sp_core::OpaquePeerId;
+pub use sp_std::vec::Vec;
+use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*, string::String};
 pub use weights::WeightInfo;
 
+pub use traits::{MasternodeDetails};//, MasternodeStorage};
+pub mod traits;
+
 /*
+#[cfg(feature = "std")]
+use serde;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "std")]
+use serde_json;
+*/
+
+use sp_std::serde_json;
+use sp_std::serde::{Deserialize, Serialize};
+use sp_std::bs58;
+
 /// The balance type of this pallet.
-pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
+type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+/*
+type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::PositiveImbalance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
+*/
+
+/*
+#[cfg_attr(feature = "std", derive(Deserialize, Encode, Decode, Default))]
+struct GithubInfo {
+	// Specify our own deserializing function to convert JSON string to vector of bytes
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	login: Vec<u8>,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	blog: Vec<u8>,
+	public_repos: u32,
+}
+
+pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
+	where
+		D: Deserializer<'de>,
+{
+	let s: &str = Deserialize::deserialize(de)?;
+	Ok(s.as_bytes().to_vec())
+}
 */
 
 #[frame_support::pallet]
@@ -57,42 +116,95 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	use pallet_node_authorization::traits::StorageInterface;
+
+	use crate::traits::MasternodeStatus;
+	use frame_system::offchain::{
+		AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload, Signer,
+		SigningTypes,
+	};
+
+	use sp_core::offchain::OpaqueNetworkState;
+	use sp_runtime::traits::IdentifyAccount;
+	use sp_runtime::offchain::{http, Duration};
+
+	// use alt_serde::{Deserialize, Deserializer};
+	// use lite_json::Serialize;
+    use lite_json::json::JsonValue;
+	use lite_json::Serialize;
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+	pub struct HeartBeatPayload<Public, BlockNumber> {
+		block_number: BlockNumber,
+		public: Public,
+		next_block_number: u32,
+		local_peer_id: OpaquePeerId,
+		peer_id_vec: Vec<OpaquePeerId>,
+	}
+
+	#[derive(Serialize, Deserialize)]
+	pub struct RpcCall {
+		pub id: u32,
+		pub jsonrpc: String,
+		pub method: String,
+		// pub params: Vec<String>,
+	}
+
+	#[derive(Serialize, Deserialize)]
+	struct RpcResult {
+		jsonrpc:String,
+		result:Vec<PeerInfo>,
+		id: u32,
+	}
+
+	#[derive(Serialize, Deserialize)]
+	struct PeerInfo {
+		peerId: String,
+		roles: String,
+		bestHash: String,
+		bestNumber: u32,
+	}
+
+	impl<T: SigningTypes> SignedPayload<T> for HeartBeatPayload<T::Public, T::BlockNumber> {
+		fn public(&self) -> T::Public {
+			self.public.clone()
+		}
+	}
+
 	/// The module configuration trait
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-        
-        /// The overarching event type.
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		/*
-        /// The staking balance.
-        type Currency: LockableCurrency<
-            Self::AccountId,
-            Moment = Self::BlockNumber,
-            Balance = Self::CurrencyBalance,
-        >;
-        /// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
-        /// `From<u64>`.
-        type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
-            + codec::FullCodec
-            + Copy
-            + MaybeSerializeDeserialize
-            + sp_std::fmt::Debug
-            + Default
-            + From<u64>
-            + TypeInfo
-            + MaxEncodedLen;
-        /// Time used for computing era duration.
-        ///
-        /// It is guaranteed to start being called from the first `on_finalize`. Thus value at
-        /// genesis is not used.
-        */
-        type UnixTime: UnixTime;
+	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 
+		/// The overarching event type.
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+		/// The currency used for deposits.
+		type Currency: ReservableCurrency<Self::AccountId>;
+
+		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
+		/// `From<u64>`.
+		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
+			+ codec::FullCodec
+			+ Copy
+			+ MaybeSerializeDeserialize
+			+ sp_std::fmt::Debug
+			+ Default
+			+ From<u64>
+			+ TypeInfo
+			+ MaxEncodedLen;
+
+		/// Time used for computing era duration.
+		type UnixTime: UnixTime;
+
+		/// The deposit required for masternode.
+		#[pallet::constant]
+		type MasternodeDeposit: Get<BalanceOf<Self>>;
 
 		/// The maximum number of well known nodes that are allowed to set
 		#[pallet::constant]
@@ -100,123 +212,380 @@ pub mod pallet {
 
 		/// The maximum length in bytes of PeerId
 		#[pallet::constant]
-		type MaxPeerId1Length: Get<u32>;
+		type MaxPeerIdLength: Get<u32>;
 
 		/// The origin which can remove a well known node.
 		type RemoveOrigin: EnsureOrigin<Self::Origin>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		type MyStorage: StorageInterface;
+
 	}
+
+	/// The set of well known nodes. This is stored sorted (just by value).
+	#[pallet::storage]
+	#[pallet::getter(fn register_masternodes)]
+	pub type RegisterMasternodes<T> = StorageValue<_, BTreeSet<OpaquePeerId>, ValueQuery>;
 
 	/// A map that maintains the ownership of each node.
 	#[pallet::storage]
 	#[pallet::getter(fn masternodes)]
-	pub type Masternodes<T: Config> = StorageMap<_, Blake2_128Concat, PeerId, T::AccountId>;
+	// pub type Masternodes<T: Config> = StorageMap<_, Blake2_128Concat, PeerId, T::AccountId>;
+	pub type Masternodes<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		OpaquePeerId,
+		MasternodeDetails<T::AccountId, T::BlockNumber>,
+	>;
 
-
-    #[pallet::storage]
-    #[pallet::getter(fn something)]
-    pub type Something<T> = StorageValue<_, u32>;
-
+	#[pallet::storage]
+	#[pallet::getter(fn heartbeat_after)]
+	pub(crate) type HeartbeatAfter<T: Config> = StorageMap<_, Blake2_128Concat, OpaquePeerId, u32>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The given well known node was added.
-		MasternodeRegistered { peer_id: PeerId, who: T::AccountId },
+		MasternodeRegistered {
+			peer_id: OpaquePeerId,
+			who: T::AccountId,
+		},
 		/// The given well known node was removed.
-		MasternodeUnregistered { peer_id: PeerId },
+		MasternodeUnregistered {
+			peer_id: OpaquePeerId,
+		},
 		/// The given well known node was removed.
-		MasternodeRemoved { peer_id: PeerId },
-    
-        SomethingStored(u32, T::AccountId),
+		MasternodeRemoved {
+			peer_id: OpaquePeerId,
+		},
 
-    }
+		MasternodeHeartBeat(OpaquePeerId, T::BlockNumber),
+	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The PeerId is too long.
 		PeerIdTooLong,
+		/// You are not masternode.
+		NotMasternode,
 		/// Too many well known nodes.
 		TooManyNodes,
 		/// The node is already joined in the list.
 		AlreadyRegistered,
 		/// The node doesn't exist in the list.
 		NotExist,
-         /// You are not the owner of the node.
-        NotOwner,
+		/// You are not the owner of the node.
+		NotOwner,
 		/// No permisson to perform specific operation.
 		PermissionDenied,
+		/// Balance is insufficient for the required deposit.
+		InsufficientFunds,
+
+		OffchainUnsignedTxError,
+
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(block_number: T::BlockNumber) {
+			let number: u32 = block_number.try_into().unwrap_or(0);
+
+			let network_state: OpaqueNetworkState = sp_io::offchain::network_state().unwrap();
+			let mut peer_id = network_state.peer_id.clone();
+			peer_id.0.remove(0);
+
+			let cc = bs58::encode(&peer_id.0).into_string();
+			/*
+			if let Some(_masternode_details) = Masternodes::<T>::get(&peer_id) {
+				let heartbeat_after = <HeartbeatAfter<T>>::get(&peer_id).unwrap_or(0);
+				if number >= heartbeat_after {
+					let _ = Signer::<T, T::AuthorityId>::any_account().send_unsigned_transaction(
+						|account| HeartBeatPayload {
+							block_number,
+							public: account.public.clone(),
+							peer_id: peer_id.clone(),
+						},
+						|payload, signature| Call::send_masternode_heartbeat {
+							heartbeat_payload: payload,
+							signature,
+						},
+					);
+				}
+			}
+			 */
+			let heartbeat_after = <HeartbeatAfter<T>>::get(&peer_id).unwrap_or(0);
+			if number >= heartbeat_after {
+				if let Ok(peers) = Self::get_peers(network_state.rpc_http_port) {
+					let mut peer_id_vec = Vec::new();
+					for peer in peers.iter() {
+						let peer_id1 = OpaquePeerId(bs58::decode(&peer.peerId).into_vec().unwrap());
+						if let Some(_) = Masternodes::<T>::get(&peer_id1) {
+							peer_id_vec.push(peer_id1);
+						}
+					}
+					let rand = sp_io::offchain::random_range();
+					let _ = Signer::<T, T::AuthorityId>::any_account().send_unsigned_transaction(
+						|account| HeartBeatPayload {
+							block_number:block_number,
+							public: account.public.clone(),
+							next_block_number: number + rand,
+							local_peer_id: peer_id.clone(),
+							peer_id_vec: peer_id_vec.clone(),
+						},
+						|payload, signature| Call::send_masternode_heartbeat {
+							heartbeat_payload: payload,
+							signature,
+						},
+					);
+				}
+			}
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 
-        #[pallet::weight((T::WeightInfo::do_something(), DispatchClass::Operational))]
-        pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-            // Check that the extrinsic was signed and get the signer.
-            // This function will return an error if the extrinsic is not signed.
-            // https://docs.substrate.io/main-docs/build/origins/
-            let who = ensure_signed(origin)?;
-         
-            // let _ = T::UnixTime::now().as_millis().saturated_into::<u64>();
+		#[pallet::weight((T::WeightInfo::register_masternode(), DispatchClass::Operational))]
+		pub fn register_masternode(origin: OriginFor<T>, peer_id: OpaquePeerId) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+			ensure!(
+				peer_id.0.len() < T::MaxPeerIdLength::get() as usize,
+				Error::<T>::PeerIdTooLong
+			);
 
-            // Update storage.
-            <Something<T>>::put(something);
+			let nodes = T::MyStorage::get_nodes();
+			ensure!(nodes.contains(&peer_id), Error::<T>::NotMasternode);
 
-            // Emit an event.
-            Self::deposit_event(Event::SomethingStored(something, who));
-            // Return a successful DispatchResultWithPostInfo
-            Ok(())
-        }
+			let mut nodes = RegisterMasternodes::<T>::get();
+			ensure!(
+				nodes.len() < T::MaxMasternodes::get() as usize,
+				Error::<T>::TooManyNodes
+			);
+			ensure!(!nodes.contains(&peer_id), Error::<T>::AlreadyRegistered);
 
-        #[pallet::weight((T::WeightInfo::register_masternode(), DispatchClass::Operational))]
-		pub fn register_masternode(
+			let deposit = T::MasternodeDeposit::get();
+			T::Currency::reserve(&sender, deposit).map_err(|_| Error::<T>::InsufficientFunds)?;
+
+			nodes.insert(peer_id.clone());
+			RegisterMasternodes::<T>::put(&nodes);
+
+			let block_number = system::Pallet::<T>::block_number();
+			Masternodes::<T>::insert(
+				&peer_id,
+				MasternodeDetails {
+					owner: sender.clone(),
+					created_block_number: block_number.clone(),
+					updated_block_number: block_number.clone(),
+					status: MasternodeStatus::OnLine,
+				},
+			);
+
+			Self::deposit_event(Event::MasternodeRegistered {
+				peer_id,
+				who: sender,
+			});
+			Ok(())
+		}
+
+		#[pallet::weight((T::WeightInfo::unregister_masternode(), DispatchClass::Operational))]
+		pub fn unregister_masternode(
 			origin: OriginFor<T>,
-			node: PeerId,
+			peer_id: OpaquePeerId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			ensure!(node.0.len() < T::MaxPeerId1Length::get() as usize, Error::<T>::PeerIdTooLong);
 
-            if let Some(_who) =  Masternodes::<T>::get(&node) {
-                ensure!(false ,Error::<T>::AlreadyRegistered);
-            } else {
-			    <Masternodes<T>>::insert(&node, &sender);
+			ensure!(
+				peer_id.0.len() < T::MaxPeerIdLength::get() as usize,
+				Error::<T>::PeerIdTooLong
+			);
 
-			    Self::deposit_event(Event::MasternodeRegistered { peer_id: node, who: sender });
-            }
+			let mut nodes = RegisterMasternodes::<T>::get();
+			ensure!(nodes.contains(&peer_id), Error::<T>::NotExist);
+
+			let masternode_details = Masternodes::<T>::get(&peer_id).ok_or(Error::<T>::NotExist)?;
+			ensure!(masternode_details.owner == sender, Error::<T>::NotOwner);
+
+			let deposit = T::MasternodeDeposit::get();
+			T::Currency::unreserve(&sender, deposit);
+
+			nodes.remove(&peer_id);
+			RegisterMasternodes::<T>::put(&nodes);
+
+			Masternodes::<T>::get(&peer_id).ok_or(Error::<T>::NotExist)?;
+			<Masternodes<T>>::remove(&peer_id);
+
+			Self::deposit_event(Event::MasternodeUnregistered { peer_id });
 			Ok(())
 		}
-
-        #[pallet::weight((T::WeightInfo::unregister_masternode(), DispatchClass::Operational))]
-        pub fn unregister_masternode(origin: OriginFor<T>, node: PeerId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            ensure!(node.0.len() < T::MaxPeerId1Length::get() as usize, Error::<T>::PeerIdTooLong);
-
-            let owner = Masternodes::<T>::get(&node).ok_or(Error::<T>::NotExist)?;
-            ensure!(owner == sender, Error::<T>::NotOwner);
-
-            <Masternodes<T>>::remove(&node);
-
-            Self::deposit_event(Event::MasternodeUnregistered { peer_id: node });
-            Ok(())
-        }
 
 		#[pallet::weight((T::WeightInfo::remove_masternode(), DispatchClass::Operational))]
-		pub fn remove_masternode(origin: OriginFor<T>, node: PeerId) -> DispatchResult {
+		pub fn remove_masternode(origin: OriginFor<T>, peer_id: OpaquePeerId) -> DispatchResult {
 			T::RemoveOrigin::ensure_origin(origin)?;
-			ensure!(node.0.len() < T::MaxPeerId1Length::get() as usize, Error::<T>::PeerIdTooLong);
+			ensure!(
+				peer_id.0.len() < T::MaxPeerIdLength::get() as usize,
+				Error::<T>::PeerIdTooLong
+			);
 
-            let _ = Masternodes::<T>::get(&node).ok_or(Error::<T>::NotExist)?;
+			let mut nodes = RegisterMasternodes::<T>::get();
+			ensure!(nodes.contains(&peer_id), Error::<T>::NotExist);
 
-			<Masternodes<T>>::remove(&node);
+			nodes.remove(&peer_id);
+			RegisterMasternodes::<T>::put(&nodes);
 
-			Self::deposit_event(Event::MasternodeRemoved { peer_id: node });
+			let masternode_details = Masternodes::<T>::get(&peer_id).ok_or(Error::<T>::NotExist)?;
+			let deposit = T::MasternodeDeposit::get();
+			T::Currency::unreserve(&masternode_details.owner, deposit);
+
+			<Masternodes<T>>::remove(&peer_id);
+
+			Self::deposit_event(Event::MasternodeRemoved { peer_id });
 			Ok(())
 		}
 
+		/*
+		#[pallet::weight((T::WeightInfo::send_masternode_heartbeat(), DispatchClass::Operational))]
+		pub fn get_masternodes (
+			origin: OriginFor<T>,
+			peer_id: OpaquePeerId,
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+
+			let masternode_details = Masternodes::<T>::get(peer_id);
+			Ok(masternode_details.try_into().unwrap_or(0))
+		}
+		*/
+
+		#[pallet::weight((T::WeightInfo::send_masternode_heartbeat(), DispatchClass::Operational))]
+		pub fn send_masternode_heartbeat(
+			origin: OriginFor<T>,
+			heartbeat_payload: HeartBeatPayload<T::Public, T::BlockNumber>,
+			_signature: T::Signature,
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+
+			for peer_id in heartbeat_payload.peer_id_vec.iter() {
+				if let Some(masternode_details) = Masternodes::<T>::get(&peer_id) {
+					Masternodes::<T>::insert(
+						&peer_id,
+						MasternodeDetails {
+							owner: masternode_details.owner.clone(),
+							created_block_number: masternode_details.created_block_number.clone(),
+							updated_block_number: heartbeat_payload.block_number.clone(),
+							status: MasternodeStatus::OnLine,
+						},
+					);
+					let cc = Masternodes::<T>::get(&peer_id).unwrap();
+
+					log::info!(target: "masternode reg", "send: {:?} -- {:?} -- {:?} -- {:?}", heartbeat_payload.local_peer_id, cc.owner, cc.created_block_number, cc.updated_block_number);
+				}
+			}
+
+			<HeartbeatAfter<T>>::insert(&heartbeat_payload.local_peer_id, heartbeat_payload.next_block_number );
+			Self::deposit_event(Event::MasternodeHeartBeat(
+				heartbeat_payload.local_peer_id,
+				heartbeat_payload.block_number,
+			));
+
+			Ok(().into())
+		}
 	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::send_masternode_heartbeat {
+				heartbeat_payload: ref payload,
+				ref signature,
+			} = call
+			{
+				let signature_valid =
+					SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
+				if !signature_valid {
+					return InvalidTransaction::BadProof.into();
+				}
+
+				ValidTransaction::with_tag_prefix("MasternodeHeartBeat")
+					.priority(TransactionPriority::max_value())
+					.longevity(1)
+					.propagate(true)
+					.build()
+			} else {
+				InvalidTransaction::Call.into()
+			}
+		}
+	}
+
+    impl<T: Config> Pallet<T> {
+        fn get_peers(rpc_http_port: u16) -> Result<Vec<PeerInfo>, http::Error> {
+            let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
+
+			let rpc_call = serde_json::json!({
+        		"method": "system_peers",
+        		"id": 1,
+        		"jsonrpc": "2.0",
+				"params": []
+    		});
+			let body = serde_json::to_string(&rpc_call).unwrap();
+			let body = vec![body.as_bytes()];
+
+			let str_port = Self::get_port(rpc_http_port);
+			let url = String::from("http://127.0.0.1:") + &str_port;
+			let request = http::Request::post(
+				url.as_str(),
+				body
+			);
+
+			let request = request.add_header("Content-Type", "application/json");
+			let pending = request.deadline(deadline).send().map_err(|_| http::Error::IoError)?;
+            let response =
+                pending.try_wait(deadline).map_err(|_| http::Error::DeadlineReached)??;
+            if response.code != 200 {
+                log::warn!("Unexpected status code: {}", response.code);
+                return Err(http::Error::Unknown)
+            }
+
+            let body = response.body().collect::<Vec<u8>>();
+            let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+                log::warn!("No UTF8 body");
+                http::Error::Unknown
+            })?;
+			let ret:RpcResult = serde_json::from_str(&body_str).unwrap();
+
+            Ok(ret.result)
+        }
+
+		fn get_port(port: u16) -> String {
+			let mut v = port;
+			let mut bstart = false;
+			let ps = vec![10000u16,1000u16,100u16,10u16,1u16];
+			let mut ret: Vec<u8> = Vec::new();
+			for p in ps.into_iter() {
+				let b1 = v / p;
+				v = v - b1 * p;
+				if b1 == 0 && bstart {
+					ret.push(b1 as u8 + 48);
+				}
+				if b1 >0 {
+					bstart = true;
+					ret.push(b1 as u8 + 48);
+				}
+			}
+			String::from_utf8(ret).expect("Found invalid UTF-8")
+		}
+    }
 }
 
+/*
+impl<T: Config> MasternodeStorage<T::AccountId, T::BlockNumber> for Pallet<T> {
+	fn get_masternode(
+		peer_id: OpaquePeerId,
+	) -> Option<MasternodeDetails<T::AccountId, T::BlockNumber>> {
+		let masternode_details = Masternodes::<T>::get(peer_id);
+		masternode_details
+	}
+}
+*/

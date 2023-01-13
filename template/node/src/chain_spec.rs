@@ -8,6 +8,10 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 
 use frontier_template_runtime::{AccountId, GenesisConfig, Signature, WASM_BINARY};
 
+// Node Authority
+use sp_core::OpaquePeerId; // A struct wraps Vec<u8> to represent the node `PeerId`.
+use frontier_template_runtime::NodeAuthorizationConfig; // The genesis config that serves the pallet.
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -109,6 +113,8 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				vec![
 					authority_keys_from_seed("Alice"),
 					authority_keys_from_seed("Bob"),
+					authority_keys_from_seed("Charlie"),
+					authority_keys_from_seed("Dave"),
 				],
 				42,
 			)
@@ -184,11 +190,11 @@ fn testnet_genesis(
 					// SS58: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 					// hex: 0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
 					// Using the full hex key, truncating to the first 20 bytes (the first 40 hex chars)
-					H160::from_str("d43593c715fdd31c61141abd04a99fd6822c8558")
+					// H160::from_str("d43593c715fdd31c61141abd04a99fd6822c8558")
+					H160::from_str("58763F1764358560e8F5dF35F0d1b36A29D9ffA0")
 						.expect("internal H160 is valid; qed"),
 					fp_evm::GenesisAccount {
-						balance: U256::from_str("0xffffffffffffffffffffffffffffffff")
-							.expect("internal U256 is valid; qed"),
+						balance: (2018030320150719 as u128 * 10_u128.pow(18)).into(),
 						code: Default::default(),
 						nonce: Default::default(),
 						storage: Default::default(),
@@ -223,5 +229,25 @@ fn testnet_genesis(
 		ethereum: Default::default(),
 		dynamic_fee: Default::default(),
 		base_fee: Default::default(),
+        node_authorization: NodeAuthorizationConfig {
+            nodes: vec![
+                (
+                    OpaquePeerId(bs58::decode("12D3KooWBmAwcd4PJNJvfV89HwE48nwkRmAgo8Vy3uQEyNNHBox2").into_vec().unwrap()),
+                    endowed_accounts[0].clone()
+                ),
+                (
+                    OpaquePeerId(bs58::decode("12D3KooWQYV9dGMFoRzNStwpXztXaBUjtPqi6aU76ZgUriHhKust").into_vec().unwrap()),
+                    endowed_accounts[1].clone()
+                ),
+				(
+					OpaquePeerId(bs58::decode("12D3KooWJvyP3VJYymTqG7eH4PM5rN4T2agk5cdNCfNymAqwqcvZ").into_vec().unwrap()),
+					endowed_accounts[2].clone()
+				),
+				(
+					OpaquePeerId(bs58::decode("12D3KooWPHWFrfaJzxPnqnAYAoRUyAHHKqACmEycGTVmeVhQYuZN").into_vec().unwrap()),
+					endowed_accounts[3].clone()
+				),
+            ],
+        },
 	}
 }
