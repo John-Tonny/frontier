@@ -16,18 +16,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-pub mod types;
+//! Web3 rpc interface.
 
-mod eth;
-mod eth_pubsub;
-mod net;
-mod web3;
-mod masternode;
+use ethereum_types::H256;
+use jsonrpsee::{core::RpcResult as Result, proc_macros::rpc};
 
-pub use self::{
-	eth::{EthApiServer, EthFilterApiServer},
-	eth_pubsub::EthPubSubApiServer,
-	net::NetApiServer,
-	web3::Web3ApiServer,
-	masternode::MasternodeApiServer,
-};
+use crate::types::Bytes;
+use sp_core::OpaquePeerId;
+
+// use fp_masternode::{MasternodeDetails, MasternodeInfo};
+
+
+/// Masternode rpc interface.
+#[rpc(server)]
+pub trait MasternodeApi {
+	/// Returns current client version.
+	#[method(name = "masternode_clientVersion")]
+	fn client_version(&self) -> Result<String>;
+
+	/// Returns sha3 of the given data
+	#[method(name = "masternode_sha3")]
+	fn sha3(&self, input: Bytes) -> Result<H256>;
+}

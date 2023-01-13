@@ -720,13 +720,15 @@ impl_runtime_apis! {
 		}
 	}
     
-	impl fp_masternode::MasternodeApi<Block> for Runtime {
+	impl fp_masternode::MasternodeRuntimeRPCApi<Block> for Runtime {
 		fn version() -> u64 {
+			let  _bb = <pallet_masternode::Pallet<Runtime>>::get_port(9933u16);
 			<Runtime as pallet_evm::Config>::ChainId::get()
 		}
     }
     
 	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
+
 		fn chain_id() -> u64 {
 			<Runtime as pallet_evm::Config>::ChainId::get()
 		}

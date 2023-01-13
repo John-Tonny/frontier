@@ -25,7 +25,7 @@ pub use sp_core::offchain::STORAGE_PREFIX;
 
 sp_api::decl_runtime_apis! {
 	/// The masternode api.
-	pub trait MasternodeApi {
+	pub trait MasternodeRuntimeRPCApi {
         fn version() -> u64;
 	}
 }

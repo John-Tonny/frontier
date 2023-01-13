@@ -31,6 +31,7 @@ mod net;
 mod overrides;
 mod signer;
 mod web3;
+mod masternode;
 
 pub use self::{
 	eth::{format, EstimateGasAdapter, Eth, EthBlockDataCacheTask, EthFilter, EthTask},
@@ -42,10 +43,11 @@ pub use self::{
 	},
 	signer::{EthDevSigner, EthSigner},
 	web3::Web3,
+	masternode::Masternode,
 };
 pub use ethereum::TransactionV2 as EthereumTransaction;
 pub use fc_rpc_core::{
-	EthApiServer, EthFilterApiServer, EthPubSubApiServer, NetApiServer, Web3ApiServer,
+	EthApiServer, EthFilterApiServer, EthPubSubApiServer, NetApiServer, Web3ApiServer, MasternodeApiServer,
 };
 
 pub mod frontier_backend_client {

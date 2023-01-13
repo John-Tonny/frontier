@@ -127,12 +127,7 @@ pub mod pallet {
 	use sp_core::offchain::OpaqueNetworkState;
 	use sp_runtime::traits::IdentifyAccount;
 	use sp_runtime::offchain::{http, Duration};
-
-	// use alt_serde::{Deserialize, Deserializer};
-	// use lite_json::Serialize;
-    use lite_json::json::JsonValue;
-	use lite_json::Serialize;
-
+	
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::without_storage_info]
@@ -558,7 +553,7 @@ pub mod pallet {
             Ok(ret.result)
         }
 
-		fn get_port(port: u16) -> String {
+		pub fn get_port(port: u16) -> String {
 			let mut v = port;
 			let mut bstart = false;
 			let ps = vec![10000u16,1000u16,100u16,10u16,1u16];

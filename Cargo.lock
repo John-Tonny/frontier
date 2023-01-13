@@ -1730,6 +1730,7 @@ dependencies = [
  "rustc-hex",
  "serde",
  "serde_json",
+ "sp-core",
 ]
 
 [[package]]
