@@ -58,7 +58,7 @@ pub type AuthorityId = crypto::Public;
 pub use pallet::*;
 
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchResult, RuntimeDebug, traits::{Currency, LockableCurrency, ReservableCurrency, UnixTime}};
+use frame_support::{dispatch::DispatchResult, RuntimeDebug, traits::{Currency, ReservableCurrency, UnixTime}};
 use frame_system::{self as system};
 use pallet_node_authorization::StorageInterface;
 use sp_core::OpaquePeerId;
@@ -70,7 +70,7 @@ pub use weights::WeightInfo;
 //pub mod traits;
 
 use sp_std::serde_json;
-use sp_std::serde::{Deserialize, Serialize};
+use sp_std::serde::{Deserialize, Serialize, Serializer};
 use sp_std::bs58;
 
 /// The balance type of this pallet.
@@ -91,12 +91,25 @@ pub struct MasternodeDetails<AccountId, BlockNumber> {
 	pub status: MasternodeStatus,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, Serialize, Deserialize)]
+/*
+impl Serialize for OpaquePeerId1 {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+		where
+			S: Serializer,
+	{
+		let peer_id_str =  bs58::encode(&self).into_string();
+		serializer.serialize_str(&peer_id_str)
+	}
+}
+*/
+
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug,  TypeInfo,  Serialize)]
 pub struct MasternodeInfo {
 	pub total_nums: u16,
 	pub online_nums: u16,
-	//pub peers_id: Vec<OpaquePeerId>,
+	// pub peers_id: Vec<OpaquePeerId1>,
 }
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -279,28 +292,12 @@ pub mod pallet {
 			peer_id.0.remove(0);
 
 			let cc = bs58::encode(&peer_id.0).into_string();
-			/*
-			if let Some(_masternode_details) = Masternodes::<T>::get(&peer_id) {
-				let heartbeat_after = <HeartbeatAfter<T>>::get(&peer_id).unwrap_or(0);
-				if number >= heartbeat_after {
-					let _ = Signer::<T, T::AuthorityId>::any_account().send_unsigned_transaction(
-						|account| HeartBeatPayload {
-							block_number,
-							public: account.public.clone(),
-							peer_id: peer_id.clone(),
-						},
-						|payload, signature| Call::send_masternode_heartbeat {
-							heartbeat_payload: payload,
-							signature,
-						},
-					);
-				}
-			}
-			 */
+
 			let heartbeat_after = <HeartbeatAfter<T>>::get(&peer_id).unwrap_or(0);
 			if number >= heartbeat_after {
 				if let Ok(peers) = Self::get_peers(network_state.rpc_http_port) {
 					let mut peer_id_vec = Vec::new();
+					peer_id_ves.push(peer_id);
 					for peer in peers.iter() {
 						let peer_id1 = OpaquePeerId(bs58::decode(&peer.peerId).into_vec().unwrap());
 						if let Some(_) = Masternodes::<T>::get(&peer_id1) {
@@ -450,6 +447,7 @@ pub mod pallet {
 					log::info!(target: "masternode reg", "send: {:?} -- {:?} -- {:?} -- {:?}", heartbeat_payload.local_peer_id, cc.owner, cc.created_block_number, cc.updated_block_number);
 				}
 			}
+			Self::update_masternode_state();
 
 			<HeartbeatAfter<T>>::insert(&heartbeat_payload.local_peer_id, heartbeat_payload.next_block_number );
 			Self::deposit_event(Event::MasternodeHeartBeat(
@@ -546,6 +544,23 @@ pub mod pallet {
 			String::from_utf8(ret).expect("Found invalid UTF-8")
 		}
 
+		fn update_masternode_state() {
+			let block_number:u32 = system::Pallet::<T>::block_number().try_into().unwrap_or(0);
+			let nodes = RegisterMasternodes::<T>::get();
+			for node in nodes.into_iter() {
+				if let Some(mut masternode_details) = Masternodes::<T>::get(&node) {
+					let number:u32 = masternode_details.updated_block_number.try_into().unwrap_or(0);
+					if block_number > number + 120 {
+						masternode_details.status = MasternodeStatus::OffLine;
+						Masternodes::<T>::insert(
+							&node,
+							masternode_details,
+						);
+					}
+				}
+			}
+		}
+
 		pub fn get_status(peer_id: OpaquePeerId) -> u16 {
 			10u16
 		}
@@ -553,6 +568,7 @@ pub mod pallet {
 		pub fn get_info() -> MasternodeInfo {
 			let block_number:u32 = system::Pallet::<T>::block_number().try_into().unwrap_or(0);
 			let nodes = RegisterMasternodes::<T>::get();
+			let nodes1 = nodes.clone();
 			let total_nums:u16 = nodes.len() as u16;
 			let mut online_nums:u16 = 0;
 
@@ -564,10 +580,11 @@ pub mod pallet {
 					}
 				}
 			}
+			let peers_id = Vec::from_iter(nodes1);
 			MasternodeInfo{
 				total_nums,
 				online_nums,
-				//peers_id: nodes,
+				// peers_id,
 			}
 		}
     }
