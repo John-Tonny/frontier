@@ -44,7 +44,6 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible, tokens::BalanceConversion},
 };
 
 pub mod crypto {
@@ -70,7 +69,7 @@ pub use weights::WeightInfo;
 //pub mod traits;
 
 use sp_std::serde_json;
-use sp_std::serde::{Deserialize, Serialize, Serializer};
+use sp_std::serde::{Deserialize, Serialize};
 use sp_std::bs58;
 
 /// The balance type of this pallet.
@@ -84,12 +83,19 @@ pub enum MasternodeStatus {
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, Serialize, Deserialize)]
+pub struct MasternodeDetails {
+	pub created_block_number: u32,
+	pub updated_block_number: u32,
+	pub status: MasternodeStatus,
+}
+/*
 pub struct MasternodeDetails<AccountId, BlockNumber> {
 	pub owner: AccountId,
 	pub created_block_number: BlockNumber,
 	pub updated_block_number: BlockNumber,
 	pub status: MasternodeStatus,
 }
+*/
 
 /*
 impl Serialize for OpaquePeerId1 {
@@ -227,12 +233,12 @@ pub mod pallet {
 	/// A map that maintains the ownership of each node.
 	#[pallet::storage]
 	#[pallet::getter(fn masternodes)]
-	// pub type Masternodes<T: Config> = StorageMap<_, Blake2_128Concat, PeerId, T::AccountId>;
 	pub type Masternodes<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		OpaquePeerId,
-		MasternodeDetails<T::AccountId, T::BlockNumber>,
+		MasternodeDetails,
+		// MasternodeDetails<T::AccountId, T::BlockNumber>,
 	>;
 
 	#[pallet::storage]
@@ -289,15 +295,14 @@ pub mod pallet {
 
 			let network_state: OpaqueNetworkState = sp_io::offchain::network_state().unwrap();
 			let mut peer_id = network_state.peer_id.clone();
-			peer_id.0.remove(0);
-
 			let cc = bs58::encode(&peer_id.0).into_string();
+			peer_id.0.remove(0);
 
 			let heartbeat_after = <HeartbeatAfter<T>>::get(&peer_id).unwrap_or(0);
 			if number >= heartbeat_after {
 				if let Ok(peers) = Self::get_peers(network_state.rpc_http_port) {
 					let mut peer_id_vec = Vec::new();
-					peer_id_ves.push(peer_id);
+					peer_id_vec.push(peer_id.clone());
 					for peer in peers.iter() {
 						let peer_id1 = OpaquePeerId(bs58::decode(&peer.peerId).into_vec().unwrap());
 						if let Some(_) = Masternodes::<T>::get(&peer_id1) {
@@ -344,19 +349,21 @@ pub mod pallet {
 			);
 			ensure!(!nodes.contains(&peer_id), Error::<T>::AlreadyRegistered);
 
+			/*
 			let deposit = T::MasternodeDeposit::get();
 			T::Currency::reserve(&sender, deposit).map_err(|_| Error::<T>::InsufficientFunds)?;
+			*/
 
 			nodes.insert(peer_id.clone());
 			RegisterMasternodes::<T>::put(&nodes);
 
-			let block_number = system::Pallet::<T>::block_number();
+			let block_number:u32 = system::Pallet::<T>::block_number().try_into().unwrap_or(0);
 			Masternodes::<T>::insert(
 				&peer_id,
 				MasternodeDetails {
-					owner: sender.clone(),
-					created_block_number: block_number.clone(),
-					updated_block_number: block_number.clone(),
+					//owner: sender.clone(),
+					created_block_number: block_number,
+					updated_block_number: block_number,
 					status: MasternodeStatus::OnLine,
 				},
 			);
@@ -383,11 +390,15 @@ pub mod pallet {
 			let mut nodes = RegisterMasternodes::<T>::get();
 			ensure!(nodes.contains(&peer_id), Error::<T>::NotExist);
 
+			/*
 			let masternode_details = Masternodes::<T>::get(&peer_id).ok_or(Error::<T>::NotExist)?;
 			ensure!(masternode_details.owner == sender, Error::<T>::NotOwner);
+			*/
 
+			/*
 			let deposit = T::MasternodeDeposit::get();
 			T::Currency::unreserve(&sender, deposit);
+			*/
 
 			nodes.remove(&peer_id);
 			RegisterMasternodes::<T>::put(&nodes);
@@ -413,9 +424,11 @@ pub mod pallet {
 			nodes.remove(&peer_id);
 			RegisterMasternodes::<T>::put(&nodes);
 
+			/*
 			let masternode_details = Masternodes::<T>::get(&peer_id).ok_or(Error::<T>::NotExist)?;
 			let deposit = T::MasternodeDeposit::get();
 			T::Currency::unreserve(&masternode_details.owner, deposit);
+			*/
 
 			<Masternodes<T>>::remove(&peer_id);
 
@@ -436,15 +449,15 @@ pub mod pallet {
 					Masternodes::<T>::insert(
 						&peer_id,
 						MasternodeDetails {
-							owner: masternode_details.owner.clone(),
-							created_block_number: masternode_details.created_block_number.clone(),
-							updated_block_number: heartbeat_payload.block_number.clone(),
+							// owner: masternode_details.owner.clone(),
+							created_block_number: masternode_details.created_block_number,
+							updated_block_number: heartbeat_payload.block_number.try_into().unwrap_or(0),
 							status: MasternodeStatus::OnLine,
 						},
 					);
 					let cc = Masternodes::<T>::get(&peer_id).unwrap();
 
-					log::info!(target: "masternode reg", "send: {:?} -- {:?} -- {:?} -- {:?}", heartbeat_payload.local_peer_id, cc.owner, cc.created_block_number, cc.updated_block_number);
+					log::info!(target: "masternode reg", "send: {:?} -- {:?}  -- {:?}", heartbeat_payload.local_peer_id,  cc.created_block_number, cc.updated_block_number);
 				}
 			}
 			Self::update_masternode_state();
@@ -489,13 +502,21 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         fn get_peers(rpc_http_port: u16) -> Result<Vec<PeerInfo>, http::Error> {
             let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
-
+			/*
 			let rpc_call = serde_json::json!({
         		"method": "system_peers",
         		"id": 1,
         		"jsonrpc": "2.0",
 				"params": []
     		});
+			 */
+
+			let rpc_call = RpcCall{
+				method: "system_peers".to_owned(),
+				id: 1,
+				jsonrpc: "2.0".to_owned()
+			};
+
 			let body = serde_json::to_string(&rpc_call).unwrap();
 			let body = vec![body.as_bytes()];
 
@@ -561,8 +582,17 @@ pub mod pallet {
 			}
 		}
 
-		pub fn get_status(peer_id: OpaquePeerId) -> u16 {
-			10u16
+		pub fn get_status(peer_id: OpaquePeerId) -> Option<MasternodeDetails> {
+			let block_number: u32 = system::Pallet::<T>::block_number().try_into().unwrap_or(0);
+			if let Some(mut masternode_details) = Masternodes::<T>::get(&peer_id) {
+				let number: u32 = masternode_details.updated_block_number;
+				if block_number > number + 600 {
+					masternode_details.status = MasternodeStatus::OffLine;
+				}
+				Some(masternode_details)
+			} else {
+				None
+			}
 		}
 
 		pub fn get_info() -> MasternodeInfo {

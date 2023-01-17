@@ -15,7 +15,7 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId},
 	OpaqueMetadata, H160, H256, U256,
-	OpaquePeerId,
+	OpaquePeerId, Bytes,
 };
 use sp_runtime::{
 	create_runtime_str,
@@ -37,6 +37,7 @@ use frame_support::weights::constants::ParityDbWeight as RuntimeDbWeight;
 use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+
 };
 use pallet_transaction_payment::CurrencyAdapter;
 // Frontier
@@ -47,7 +48,7 @@ use pallet_evm::{
 	HashedAddressMapping, Runner,
 };
 
-use pallet_masternode::{MasternodeInfo};
+use pallet_masternode::{MasternodeInfo, MasternodeDetails};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -231,6 +232,7 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type MaxAuthorities = MaxAuthorities;
 	type DisabledValidators = ();
+	type WeightInfo = ();
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -730,8 +732,9 @@ impl_runtime_apis! {
     }
     
 	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
-		fn get_status(peer_id: OpaquePeerId) -> u16 {
-			<pallet_masternode::Pallet<Runtime>>::get_status(peer_id)
+		fn get_status(peer_id: Bytes) -> Option<MasternodeDetails> {
+			let peerid = OpaquePeerId::new(peer_id.to_vec());
+			<pallet_masternode::Pallet<Runtime>>::get_status(peerid)
 		}
 		fn get_info() -> MasternodeInfo {
 			<pallet_masternode::Pallet<Runtime>>::get_info()
@@ -922,19 +925,7 @@ impl_runtime_apis! {
 		fn grandpa_authorities() -> GrandpaAuthorityList {
 			Grandpa::grandpa_authorities()
 		}
-        /*    
-		fn set_grandpa_authorities(authorities: &GrandpaAuthorityList)  {
-			Grandpa::set_grandpa_authorities(authorities)
-		}
-        
-		fn add_grandpa_authority(authorityId: GrandpaId, authorityWeight: AuthorityWeight) -> GrandpaAuthorityList {
-			Grandpa::add_grandpa_authority(authorityId, authorityWeight)
-		}
 
-		fn remove_grandpa_authority(authorityId: GrandpaId) -> GrandpaAuthorityList {
-			Grandpa::remove_grandpa_authority(authorityId)
-		}
-        */
 		fn current_set_id() -> fg_primitives::SetId {
 			Grandpa::current_set_id()
 		}

@@ -20,16 +20,16 @@
 
 use jsonrpsee::{core::RpcResult as Result, proc_macros::rpc};
 
-use sp_core::OpaquePeerId;
+use sp_core::Bytes;
 
-use pallet_masternode::{MasternodeInfo};
+use pallet_masternode::{MasternodeDetails, MasternodeInfo};
 
 /// Masternode rpc interface.
 #[rpc(server)]
 pub trait MasternodeApi {
 	/// Returns masternode status.
 	#[method(name = "masternode_status")]
-	fn get_status(&self, peer_id: OpaquePeerId) -> Result<u16>;
+	fn get_status(&self, peer_id: Bytes ) -> Result<Option<MasternodeDetails>>;
 
 	/// Returns masternode info.
 	#[method(name = "masternode_info")]

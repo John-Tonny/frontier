@@ -22,11 +22,11 @@ use codec::{Decode, Encode};
 use ethereum::Log;
 use ethereum_types::Bloom;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256, U256, OpaquePeerId};
+use sp_core::{H160, H256, U256, Bytes};
 use sp_runtime::{traits::Block as BlockT, Permill, RuntimeDebug};
 use sp_std::vec::Vec;
 
-use pallet_masternode::{MasternodeInfo};
+use pallet_masternode::{MasternodeInfo, MasternodeDetails};
 
 #[derive(Eq, PartialEq, Clone, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct TransactionStatus {
@@ -168,7 +168,7 @@ sp_api::decl_runtime_apis! {
 		fn elasticity() -> Option<Permill>;
 
 
-		fn get_status(peer_id: OpaquePeerId) -> u16;
+		fn get_status(peer_id: Bytes) -> Option<MasternodeDetails>;
 		fn get_info() -> MasternodeInfo;
 
 	}

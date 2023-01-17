@@ -18,22 +18,20 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use sp_core::OpaquePeerId;
-
 use ethereum_types::H256;
 use jsonrpsee::core::RpcResult as Result;
 use sp_api::{Core, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_core::keccak_256;
+use sp_core::{keccak_256, Bytes};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
-use fc_rpc_core::{types::Bytes, MasternodeApiServer};
+use fc_rpc_core::{MasternodeApiServer};
 use fp_rpc::EthereumRuntimeRPCApi;
 //use fp_masternode::MasternodeRuntimeRPCApi;
 
 use crate::internal_err;
 
-use pallet_masternode::{MasternodeInfo};
+use pallet_masternode::{MasternodeInfo, MasternodeDetails};
 
 /// Masternode API implementation.
 pub struct Masternode<B, C> {
@@ -56,7 +54,7 @@ where
 	C: HeaderBackend<B> + ProvideRuntimeApi<B> + Send + Sync + 'static,
 	C::Api: EthereumRuntimeRPCApi<B>,
 {
-	fn get_status(&self, peer_id: OpaquePeerId) -> Result<u16> {
+	fn get_status(&self, peer_id: Bytes) -> Result<Option<MasternodeDetails>> {
 		let hash = self.client.info().best_hash;
 		let ret = self
 			.client
