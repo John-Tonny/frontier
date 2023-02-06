@@ -160,7 +160,7 @@ parameter_types! {
 		::with_sensible_defaults(MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO);
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
 		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
-	pub const SS58Prefix: u8 = 42;
+	pub const SS58Prefix: u8 = 42;	// 90 john
     pub const MaxWellKnownNodes: u32 = 10000;
     pub const MaxPeerIdLength: u32 = 128;
 
@@ -232,7 +232,7 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type MaxAuthorities = MaxAuthorities;
 	type DisabledValidators = ();
-	type WeightInfo = ();
+	//type WeightInfo = ();
 }
 
 impl pallet_grandpa::Config for Runtime {

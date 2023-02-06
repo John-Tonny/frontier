@@ -20,9 +20,9 @@ use std::{marker::PhantomData, sync::Arc};
 
 use ethereum_types::H256;
 use jsonrpsee::core::RpcResult as Result;
-use sp_api::{Core, ProvideRuntimeApi};
+use sp_api::{ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_core::{keccak_256, Bytes};
+use sp_core::{Bytes};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 use fc_rpc_core::{MasternodeApiServer};

@@ -19,7 +19,7 @@ use clap::Parser;
 // Substrate
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory};
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
-use sc_service::{DatabaseSource, PartialComponents};
+use sc_service::{client, DatabaseSource, PartialComponents};
 use sp_keyring::Sr25519Keyring;
 // Frontier
 use fc_db::frontier_database_dir;
@@ -61,6 +61,7 @@ impl SubstrateCli for Cli {
 		Ok(match id {
 			"dev" => Box::new(chain_spec::development_config()?),
 			"" | "local" => Box::new(chain_spec::local_testnet_config()?),
+			"live" => Box::new(chain_spec::local_mainnet_config()?),
 			path => Box::new(chain_spec::ChainSpec::from_json_file(
 				std::path::PathBuf::from(path),
 			)?),

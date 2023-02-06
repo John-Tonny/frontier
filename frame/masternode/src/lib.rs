@@ -40,7 +40,7 @@
 pub mod weights;
 
 use sp_core::crypto::KeyTypeId;
-pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"mnod");
 
 use frame_support::{
 	pallet_prelude::*,
@@ -192,7 +192,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MasternodeDeposit: Get<BalanceOf<Self>>;
 
-		/// The maximum number of well known nodes that are allowed to set
+		/// The maximum number of masternodes that are allowed to set
 		#[pallet::constant]
 		type MaxMasternodes: Get<u32>;
 
@@ -200,7 +200,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPeerIdLength: Get<u32>;
 
-		/// The origin which can remove a well known node.
+		/// The origin which can remove a masternode.
 		type RemoveOrigin: EnsureOrigin<Self::Origin>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -233,21 +233,25 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The given well known node was added.
+		/// The given masternode was registered.
 		MasternodeRegistered {
 			peer_id: OpaquePeerId,
 			who: T::AccountId,
 		},
-		/// The given well known node was removed.
+		/// The given masternode was unregistered.
 		MasternodeUnregistered {
 			peer_id: OpaquePeerId,
 		},
-		/// The given well known node was removed.
+		/// The given masternode was removed.
 		MasternodeRemoved {
 			peer_id: OpaquePeerId,
 		},
-
-		MasternodeHeartBeat(OpaquePeerId, T::BlockNumber),
+        
+        /// masternode heartbeat
+		MasternodeHeartBeat {
+            peer_id: OpaquePeerId, 
+            block_number: T::BlockNumber
+        },
 	}
 
 	#[pallet::error]
@@ -353,7 +357,7 @@ pub mod pallet {
 			);
 
 			Self::deposit_event(Event::MasternodeRegistered {
-				peer_id,
+				peer_id: peer_id,
 				who: sender,
 			});
 			Ok(())
@@ -439,18 +443,15 @@ pub mod pallet {
 							status: MasternodeStatus::OnLine,
 						},
 					);
-					let cc = Masternodes::<T>::get(&peer_id).unwrap();
-
-					log::info!(target: "masternode reg", "send: {:?} -- {:?}  -- {:?}", heartbeat_payload.local_peer_id,  cc.created_block_number, cc.updated_block_number);
 				}
 			}
 			// Self::update_masternode_state();
 
 			<HeartbeatAfter<T>>::insert(&heartbeat_payload.local_peer_id, heartbeat_payload.next_block_number );
-			Self::deposit_event(Event::MasternodeHeartBeat(
-				heartbeat_payload.local_peer_id,
-				heartbeat_payload.block_number,
-			));
+			Self::deposit_event(Event::MasternodeHeartBeat{
+				peer_id: heartbeat_payload.local_peer_id,
+				block_number: heartbeat_payload.block_number,
+            });
 
 			Ok(().into())
 		}

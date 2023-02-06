@@ -22,4 +22,4 @@ echo $mypath
 
 ./target/debug/$name key insert --base-path $mypath --chain $chain --scheme Sr25519 --suri "$suri"  --key-type audi
 
-./target/debug/$name key insert --base-path $mypath --chain $chain --scheme Sr25519 --suri "$suri"  --key-type demo
+./target/debug/$name key insert --base-path $mypath --chain $chain --scheme Sr25519 --suri "$suri"  --key-type mnod
