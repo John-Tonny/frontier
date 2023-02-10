@@ -22,6 +22,8 @@ mod net;
 mod overrides;
 mod signer;
 mod web3;
+// john
+mod masternode;
 
 pub use self::{
 	eth::{EthApi, EthBlockDataCache, EthFilterApi, EthTask},
@@ -33,11 +35,15 @@ pub use self::{
 	},
 	signer::{EthDevSigner, EthSigner},
 	web3::Web3Api,
+    // john
+    masternode::MasternodeApi,
 };
 
 pub use ethereum::TransactionV2 as EthereumTransaction;
 pub use fc_rpc_core::{
 	EthApiServer, EthFilterApiServer, EthPubSubApiServer, NetApiServer, Web3ApiServer,
+	// john
+	MasternodeApiServer
 };
 
 pub mod frontier_backend_client {

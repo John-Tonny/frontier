@@ -9,6 +9,11 @@ use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::{collections::BTreeMap, str::FromStr};
 
+// john
+// Node Authority
+use sp_core::OpaquePeerId; // A struct wraps Vec<u8> to represent the node `PeerId`.
+use frontier_template_runtime::NodeAuthorizationConfig; // The genesis config that serves the pallet.
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -167,7 +172,8 @@ fn testnet_genesis(
 				let mut map = BTreeMap::new();
 				map.insert(
 					// H160 address of Alice dev account
-					// Derived from SS58 (42 prefix) address
+					// Derived from SS58 (:q
+					// prefix) address
 					// SS58: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 					// hex: 0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
 					// Using the full hex key, truncating to the first 20 bytes (the first 40 hex chars)
@@ -199,5 +205,22 @@ fn testnet_genesis(
 		ethereum: EthereumConfig {},
 		dynamic_fee: Default::default(),
 		base_fee: Default::default(),
+		// john
+		node_authorization: NodeAuthorizationConfig {
+			nodes: vec![
+				(
+					OpaquePeerId(bs58::decode("12D3KooWBmAwcd4PJNJvfV89HwE48nwkRmAgo8Vy3uQEyNNHBox2").into_vec().unwrap()),
+					endowed_accounts[0].clone()
+				),
+				(
+					OpaquePeerId(bs58::decode("12D3KooWQYV9dGMFoRzNStwpXztXaBUjtPqi6aU76ZgUriHhKust").into_vec().unwrap()),
+					endowed_accounts[1].clone()
+				),
+				(
+					OpaquePeerId(bs58::decode("12D3KooWJvyP3VJYymTqG7eH4PM5rN4T2agk5cdNCfNymAqwqcvZ").into_vec().unwrap()),
+					endowed_accounts[2].clone()
+				),
+			],
+		},
 	}
 }

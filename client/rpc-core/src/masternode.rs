@@ -16,20 +16,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-pub mod types;
+//! Web3 rpc interface.
 
-mod eth;
-mod eth_pubsub;
-mod net;
-mod web3;
-// john
-mod masternode;
+use jsonrpc_core::Result;
+use jsonrpc_derive::rpc;
 
-pub use self::{
-	eth::{EthApi, EthApiServer, EthFilterApi, EthFilterApiServer},
-	eth_pubsub::{EthPubSubApi, EthPubSubApiServer},
-	net::{NetApi, NetApiServer},
-	web3::{Web3Api, Web3ApiServer},
-    // john
-    masternode::{MasternodeApi, MasternodeApiServer},
-};
+use sp_core::Bytes;
+
+use pallet_masternode::{MasternodeDetails, MasternodeInfo};
+
+pub use rpc_impl_MasternodeApi::gen_server::MasternodeApi as MasternodeApiServer;
+
+/// Masternode rpc interface.
+#[rpc(server)]
+pub trait MasternodeApi {
+    /// Returns masternode status.
+    #[rpc(name = "masternode_status")]
+    fn get_status(&self, peer_id: Bytes ) -> Result<Option<MasternodeDetails>>;
+
+    /// Returns masternode info.
+    #[rpc(name = "masternode_info")]
+    fn get_info(&self) -> Result<MasternodeInfo>;
+}

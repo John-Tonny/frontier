@@ -20,9 +20,13 @@
 use codec::{Decode, Encode};
 use ethereum::Log;
 use ethereum_types::Bloom;
-use sp_core::{H160, H256, U256};
+// john
+use sp_core::{H160, H256, U256, Bytes};
 use sp_runtime::{traits::Block as BlockT, Permill};
 use sp_std::vec::Vec;
+
+// john
+use pallet_masternode::{MasternodeInfo, MasternodeDetails};
 
 #[derive(Eq, PartialEq, Clone, Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 pub struct TransactionStatus {
@@ -176,6 +180,11 @@ sp_api::decl_runtime_apis! {
 		) -> Vec<ethereum::TransactionV2>;
 		/// Return the elasticity multiplier.
 		fn elasticity() -> Option<Permill>;
+
+        // john
+        fn get_status(peer_id: Bytes) -> Option<MasternodeDetails>;
+        fn get_info() -> MasternodeInfo;
+
 	}
 
 	#[api_version(2)]

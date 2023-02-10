@@ -1,0 +1,57 @@
+[package]
+name = "pallet-masternode"
+version = "1.0.0"
+authors = ["johntonny"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+description = "FRAME pallet for masternode"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+
+frame-support = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+
+sp-core = { version = "6.0.0", git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-io = { version = "6.0.0", git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { version = "6.0.0", git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-std = { version = "4.0.0", git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+#sp-io = { version = "6.0.0", path = "../../primitives/io", default-features = false }
+
+
+# Node Authorization
+pallet-node-authorization = {version = "4.0.0-dev", path = "../../frame/node-authorization", default-features = false }
+fp-masternode = {version = "1.0.0", path = "../../primitives/masternode", default-features = false }
+
+#lite-json = { version = "0.2.0", default-features = false }
+
+serde = { version = "1.0.136", features = ["derive"], default_features = false }
+
+#bs58 = "0.4.0"
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"log/std",
+	"pallet-node-authorization/std",
+	#"lite-json/std",
+
+	"fp-masternode/std",
+]
+try-runtime = ["frame-support/try-runtime"]

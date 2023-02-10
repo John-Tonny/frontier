@@ -71,6 +71,10 @@ fp-storage = { path = "../../primitives/storage" }
 
 frontier-template-runtime = { path = "../runtime", default-features = false, features = ["std"] }
 
+# john
+# Node-Authority
+bs58 = { version = "0.4.0" }
+
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate", branch = "master" }
 

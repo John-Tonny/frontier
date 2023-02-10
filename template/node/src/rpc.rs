@@ -117,7 +117,7 @@ where
 	use fc_rpc::{
 		EthApi, EthApiServer, EthDevSigner, EthFilterApi, EthFilterApiServer, EthPubSubApi,
 		EthPubSubApiServer, EthSigner, HexEncodedIdProvider, NetApi, NetApiServer, Web3Api,
-		Web3ApiServer,
+		Web3ApiServer, MasternodeApi, MasternodeApiServer,
 	};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
@@ -200,6 +200,8 @@ where
 		),
 		overrides,
 	)));
+
+	io.extend_with(MasternodeApiServer::to_delegate(MasternodeApi::new(client.clone())));
 
 	match command_sink {
 		Some(command_sink) => {
