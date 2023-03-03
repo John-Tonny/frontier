@@ -280,39 +280,44 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(block_number: T::BlockNumber) {
-			let number: u32 = block_number.try_into().unwrap_or(0);
+            let isvalidator = sp_io::offchain::is_validator();
+            log::info!("offchain roles: {}", isvalidator);
 
-			let network_state: OpaqueNetworkState = sp_io::offchain::network_state().unwrap();
-			let mut peer_id = network_state.peer_id.clone();
-			peer_id.0.remove(0);
+            if isvalidator {
+			    let number: u32 = block_number.try_into().unwrap_or(0);
 
-			let heartbeat_after = <HeartbeatAfter<T>>::get(&peer_id).unwrap_or(0);
-			if number >= heartbeat_after {
-				if let Ok(peers) = Self::get_peers(network_state.rpc_http_port) {
-					let mut peer_id_vec = Vec::new();
-					peer_id_vec.push(peer_id.clone());
-					for peer in peers.iter() {
-						let peer_id1 = OpaquePeerId(bs58::decode(&peer.peerId).into_vec().unwrap());
-						if let Some(_) = Masternodes::<T>::get(&peer_id1) {
-							peer_id_vec.push(peer_id1);
-						}
-					}
-					let rand = sp_io::offchain::random_range();
-					let _ = Signer::<T, T::AuthorityId>::any_account().send_unsigned_transaction(
-						|account| HeartBeatPayload {
-							block_number:block_number,
-							public: account.public.clone(),
-							next_block_number: number + rand,
-							local_peer_id: peer_id.clone(),
-							peer_id_vec: peer_id_vec.clone(),
-						},
-						|payload, signature| Call::send_masternode_heartbeat {
-							heartbeat_payload: payload,
-							signature,
-						},
-					);
-				}
-			}
+			    let network_state: OpaqueNetworkState = sp_io::offchain::network_state().unwrap();
+			    let mut peer_id = network_state.peer_id.clone();
+			    peer_id.0.remove(0);
+
+			    let heartbeat_after = <HeartbeatAfter<T>>::get(&peer_id).unwrap_or(0);
+			    if number >= heartbeat_after {
+				    if let Ok(peers) = Self::get_peers(network_state.rpc_http_port) {
+					    let mut peer_id_vec = Vec::new();
+					    peer_id_vec.push(peer_id.clone());
+					    for peer in peers.iter() {
+						    let peer_id1 = OpaquePeerId(bs58::decode(&peer.peerId).into_vec().unwrap());
+						    if let Some(_) = Masternodes::<T>::get(&peer_id1) {
+							    peer_id_vec.push(peer_id1);
+						    }
+					    }
+					    let rand = sp_io::offchain::random_range();
+					    let _ = Signer::<T, T::AuthorityId>::any_account().send_unsigned_transaction(
+						    |account| HeartBeatPayload {
+							    block_number:block_number,
+							    public: account.public.clone(),
+							    next_block_number: number + rand,
+							    local_peer_id: peer_id.clone(),
+							    peer_id_vec: peer_id_vec.clone(),
+						    },
+						    |payload, signature| Call::send_masternode_heartbeat {
+							    heartbeat_payload: payload,
+							    signature,
+						    },
+					    );
+				    }
+			    }
+            }
 		}
 	}
 
@@ -487,15 +492,6 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         fn get_peers(rpc_http_port: u16) -> Result<Vec<PeerInfo>, http::Error> {
             let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
-			/*
-			let rpc_call = serde_json::json!({
-        		"method": "system_peers",
-        		"id": 1,
-        		"jsonrpc": "2.0",
-				"params": []
-    		});
-			 */
-
 			let rpc_call = RpcCall{
 				method: "system_peers".to_owned(),
 				id: 1,
@@ -526,9 +522,15 @@ pub mod pallet {
                 log::warn!("No UTF8 body");
                 http::Error::Unknown
             })?;
-			let ret:RpcResult = serde_json::from_str(&body_str).unwrap();
-
-            Ok(ret.result)
+			let ret:RpcResult = serde_json::from_str(&body_str)
+				.unwrap_or(
+				RpcResult{
+					jsonrpc: String::from("2.0"),
+					result: Vec::new(),
+					id: 1
+				}
+			);
+			Ok(ret.result)
         }
 
 		fn get_port(port: u16) -> String {
