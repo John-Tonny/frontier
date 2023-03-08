@@ -167,7 +167,6 @@ pub fn local_mainnet_config() -> Result<ChainSpec, String> {
 					authority_keys_from_seed("Alice"),
 					authority_keys_from_seed("Bob"),
 					authority_keys_from_seed("Charlie"),
-					authority_keys_from_seed("Dave"),
 				],
 				90,
 			)
