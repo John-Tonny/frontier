@@ -98,6 +98,8 @@ where
 	use fc_rpc::{
 		Eth, EthApiServer, EthDevSigner, EthFilter, EthFilterApiServer, EthPubSub,
 		EthPubSubApiServer, EthSigner, Net, NetApiServer, Web3, Web3ApiServer,
+        // john
+        Masternode, MasternodeApiServer,
 	};
 
 	let EthDeps {
@@ -177,7 +179,10 @@ where
 		.into_rpc(),
 	)?;
 
-	io.merge(Web3::new(client).into_rpc())?;
+	io.merge(Web3::new(client.clone()).into_rpc())?;
+
+    // john
+    io.merge(Masternode::new(client).into_rpc())?;
 
 	Ok(io)
 }

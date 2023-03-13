@@ -57,6 +57,16 @@ pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
 pallet-hotfix-sufficients = { workspace = true }
 
+# john
+# Node Authorization
+pallet-node-authorization = { version = "4.0.0-dev", path = "../../frame/node-authorization", default-features = false }
+
+# Masternode
+pallet-masternode = { version = "1.0.0", default-features = false, path = "../../frame/masternode" }
+fp-masternode  = { version = "1.0.0", default-features = false, path = "../../primitives/masternode" }
+
+log = { version = "0.4.17", default-features = false }
+
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
 
@@ -108,6 +118,15 @@ std = [
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
 	"pallet-hotfix-sufficients/std",
+
+	# john
+        # Node Authorization
+        "pallet-node-authorization/std",
+        # Masternode FRAME
+        "pallet-masternode/std",
+        "fp-masternode/std",
+        "log/std",
+
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

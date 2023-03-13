@@ -15,12 +15,19 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId},
 	OpaqueMetadata, H160, H256, U256,
+    // john
+    OpaquePeerId, Bytes,
 };
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	create_runtime_str, 
+    // john
+    generic::{self, Era},
+    impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, Get,
 		IdentifyAccount, NumberFor, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        // john
+		StaticLookup,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, ConsensusEngineId, MultiSignature, Perbill, Permill,
@@ -53,6 +60,10 @@ use pallet_evm::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
+
+// john
+use pallet_masternode::{MasternodeInfo, MasternodeDetails};
+use frame_system::EnsureRoot;
 
 mod precompiles;
 use precompiles::FrontierPrecompiles;
@@ -153,6 +164,12 @@ parameter_types! {
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
 		::max_with_normal_ratio(MAXIMUM_BLOCK_LENGTH, NORMAL_DISPATCH_RATIO);
 	pub const SS58Prefix: u8 = 42;
+
+    // john
+    pub const MaxWellKnownNodes: u32 = 20000;
+    pub const MaxPeerIdLength: u32 = 128;
+    pub const MaxMasternodes: u32 = 20000;
+    pub const MasternodeDeposit: Balance = 1_000_000_000_000_000; // assume this is worth about a cent.
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -301,6 +318,104 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+// john
+impl pallet_node_authorization::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type MaxWellKnownNodes = MaxWellKnownNodes;
+    type MaxPeerIdLength = MaxPeerIdLength;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+}
+
+/// Configure the pallet-maternode in frame/masternode.
+impl pallet_masternode::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type AuthorityId = MyAuthorityId;
+
+    type Currency = Balances;
+    type CurrencyBalance = Balance;
+
+    type UnixTime = Timestamp;
+
+    type MasternodeDeposit = MasternodeDeposit;
+
+    type MaxMasternodes = MaxMasternodes;
+    type MaxPeerIdLength = MaxPeerIdLength;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+
+    type MyStorage = NodeAuthorization;
+
+}
+
+pub struct MyAuthorityId;
+
+impl frame_system::offchain::AppCrypto<<Signature as Verify>::Signer, Signature> for MyAuthorityId {
+    type RuntimeAppPublic = pallet_masternode::crypto::Public;
+    type GenericSignature = sp_core::sr25519::Signature;
+    type GenericPublic = sp_core::sr25519::Public;
+}
+
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+    where
+        RuntimeCall: From<LocalCall>,
+{
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall,
+        public: <Signature as sp_runtime::traits::Verify>::Signer,
+        account: AccountId,
+        nonce: Index,
+    ) -> Option<(RuntimeCall, <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+        let tip = 0;
+        // take the biggest period possible.
+        let period = 1 << 7;
+        BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+
+        log::info!(target: "runtime", "kkkkkk++++++++++++++++++++++initialize: {:?}", period);
+
+        let current_block = System::block_number() as u64 - 1;
+        let era = Era::mortal(period, current_block);
+        let extra = (
+            frame_system::CheckNonZeroSender::<Runtime>::new(),
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(era),
+            frame_system::CheckNonce::<Runtime>::from(nonce),
+            frame_system::CheckWeight::<Runtime>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+        );
+        let raw_payload = SignedPayload::new(call, extra)
+            .map_err(|e| {
+                log::warn!("Unable to create signed payload: {:?}", e);
+            })
+            .ok()?;
+        let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+        let address = <Self as frame_system::Config>::Lookup::unlookup(account);
+        let (call, extra, _) = raw_payload.deconstruct();
+        Some((call, (address, signature.into(), extra)))
+    }
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+    type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
+
+
 impl pallet_evm_chain_id::Config for Runtime {}
 
 pub struct FindAuthorTruncated<F>(PhantomData<F>);
@@ -413,7 +528,12 @@ construct_runtime!(
 		DynamicFee: pallet_dynamic_fee,
 		BaseFee: pallet_base_fee,
 		HotfixSufficients: pallet_hotfix_sufficients,
-	}
+
+        // john
+        NodeAuthorization: pallet_node_authorization, 
+        Masternode: pallet_masternode,
+
+    }
 );
 
 #[derive(Clone)]
@@ -621,6 +741,15 @@ impl_runtime_apis! {
 	}
 
 	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
+        // john
+        fn get_status(peer_id: Bytes) -> Option<MasternodeDetails> {
+            let peerid = OpaquePeerId::new(peer_id.to_vec());
+            <pallet_masternode::Pallet<Runtime>>::get_status(peerid)
+        }
+        fn get_info() -> MasternodeInfo {
+            <pallet_masternode::Pallet<Runtime>>::get_info()
+        }
+
 		fn chain_id() -> u64 {
 			<Runtime as pallet_evm::Config>::ChainId::get()
 		}

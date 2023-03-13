@@ -17,3 +17,8 @@ jsonrpsee = { workspace = true, features = ["server", "macros"] }
 rustc-hex = "2.1.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+sp-core = { workspace = true }
+pallet-masternode = { version = "1.0.0", default-features = false, path = "../../frame/masternode" }
+
+

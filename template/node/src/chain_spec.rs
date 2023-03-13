@@ -16,6 +16,11 @@ use frontier_template_runtime::{
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
+// john
+// Node Authority
+use sp_core::OpaquePeerId; // A struct wraps Vec<u8> to represent the node `PeerId`.
+use frontier_template_runtime::NodeAuthorizationConfig; // The genesis config that serves the pallet.
+
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
@@ -88,7 +93,7 @@ pub fn development_config(enable_manual_seal: Option<bool>) -> DevChainSpec {
 					],
 					// Initial PoA authorities
 					vec![authority_keys_from_seed("Alice")],
-					42,
+					90,
 				),
 				enable_manual_seal,
 			}
@@ -141,7 +146,7 @@ pub fn local_testnet_config() -> ChainSpec {
 					authority_keys_from_seed("Alice"),
 					authority_keys_from_seed("Bob"),
 				],
-				42,
+				90,
 			)
 		},
 		// Bootnodes
@@ -254,5 +259,22 @@ fn testnet_genesis(
 		ethereum: Default::default(),
 		dynamic_fee: Default::default(),
 		base_fee: Default::default(),
+        // john
+        node_authorization: NodeAuthorizationConfig {
+            nodes: vec![
+                (
+                    OpaquePeerId(bs58::decode("12D3KooWBmAwcd4PJNJvfV89HwE48nwkRmAgo8Vy3uQEyNNHBox2").into_vec().unwrap()),
+                    endowed_accounts[0].clone()
+                ),
+                (
+                    OpaquePeerId(bs58::decode("12D3KooWQYV9dGMFoRzNStwpXztXaBUjtPqi6aU76ZgUriHhKust").into_vec().unwrap()),
+                    endowed_accounts[1].clone()
+                ),
+                (
+                    OpaquePeerId(bs58::decode("12D3KooWJvyP3VJYymTqG7eH4PM5rN4T2agk5cdNCfNymAqwqcvZ").into_vec().unwrap()),
+                    endowed_accounts[2].clone()
+                ),
+            ],
+        },
 	}
 }

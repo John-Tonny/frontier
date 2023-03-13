@@ -23,6 +23,9 @@ sp-std = { workspace = true }
 # Frontier
 fp-evm = { workspace = true }
 
+# john
+pallet-masternode = { version = "1.0.0", default-features = false, path = "../../frame/masternode" }
+
 [features]
 default = ["std"]
 std = [

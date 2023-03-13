@@ -50,6 +50,10 @@ fp-ethereum = { workspace = true, features = ["default"] }
 fp-rpc = { workspace = true, features = ["default"] }
 fp-storage = { workspace = true, features = ["default"] }
 
+# john
+# Masternode
+pallet-masternode = { version = "1.0.0", default-features = false, path = "../../frame/masternode" }
+
 [dev-dependencies]
 tempfile = "3.3.0"
 # Substrate

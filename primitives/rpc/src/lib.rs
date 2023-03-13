@@ -27,6 +27,10 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::Block as BlockT, Permill, RuntimeDebug};
 use sp_std::vec::Vec;
 
+// john
+use pallet_masternode::{MasternodeInfo, MasternodeDetails};
+use sp_core::Bytes;
+
 #[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct TransactionStatus {
 	pub transaction_hash: H256,
@@ -168,7 +172,11 @@ sp_api::decl_runtime_apis! {
 		/// Used to determine if gas limit multiplier for non-transactional calls (eth_call/estimateGas)
 		/// is supported.
 		fn gas_limit_multiplier_support();
-	}
+
+        // john
+        fn get_status(peer_id: Bytes) -> Option<MasternodeDetails>;
+        fn get_info() -> MasternodeInfo;
+    }
 
 	#[api_version(2)]
 	pub trait ConvertTransactionRuntimeApi {
