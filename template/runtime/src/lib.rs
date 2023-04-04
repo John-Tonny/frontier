@@ -64,6 +64,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 // john
 use pallet_masternode::{MasternodeInfo, MasternodeDetails};
 use frame_system::EnsureRoot;
+pub use frame_support::traits::EqualPrivilegeOnly;
 
 mod precompiles;
 use precompiles::FrontierPrecompiles;
@@ -122,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("node-frontier-template"),
 	impl_name: create_runtime_str!("node-frontier-template"),
 	authoring_version: 1,
-	spec_version: 1,
+	spec_version: 4,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -170,6 +171,9 @@ parameter_types! {
     pub const MaxPeerIdLength: u32 = 128;
     pub const MaxMasternodes: u32 = 20000;
     pub const MasternodeDeposit: Balance = 1_000_000_000_000_000; // assume this is worth about a cent.
+
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(10) * BlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -280,7 +284,7 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 500;
+	pub const ExistentialDeposit: u128 = 1000;
 	// For weight estimation, we assume that the most locks on an individual account will be 50.
 	// This number may need to be adjusted in the future if this assumption no longer holds true.
 	pub const MaxLocks: u32 = 50;
@@ -375,7 +379,7 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
         let period = 1 << 7;
         BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 
-        log::info!(target: "runtime", "kkkkkk++++++++++++++++++++++initialize: {:?}", period);
+        log::debug!(target: "runtime", "CreateSignedTransaction: {:?}", period);
 
         let current_block = System::block_number() as u64 - 1;
         let era = Era::mortal(period, current_block);
@@ -414,7 +418,18 @@ where
     type OverarchingCall = RuntimeCall;
 }
 
-
+impl pallet_scheduler::Config for Runtime {
+  type RuntimeEvent = RuntimeEvent;
+  type RuntimeOrigin = RuntimeOrigin;
+  type PalletsOrigin = OriginCaller;
+  type RuntimeCall = RuntimeCall;
+  type MaximumWeight = MaximumSchedulerWeight;
+  type ScheduleOrigin = frame_system::EnsureRoot<AccountId>;
+  type MaxScheduledPerBlock = MaxScheduledPerBlock;
+  type WeightInfo = ();
+  type OriginPrivilegeCmp = EqualPrivilegeOnly;
+  type Preimages = ();
+}
 
 impl pallet_evm_chain_id::Config for Runtime {}
 
@@ -532,7 +547,7 @@ construct_runtime!(
         // john
         NodeAuthorization: pallet_node_authorization, 
         Masternode: pallet_masternode,
-
+        Scheduler: pallet_scheduler,
     }
 );
 

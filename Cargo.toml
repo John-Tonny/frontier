@@ -108,6 +108,10 @@ pallet-transaction-payment = { version = "4.0.0-dev", git = "https://github.com/
 pallet-transaction-payment-rpc = { version = "4.0.0-dev", git = "https://github.com/John-Tonny/substrate", branch = "v.1837f423b4" }
 pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", git = "https://github.com/John-Tonny/substrate", branch = "v.1837f423b4", default-features = false }
 pallet-utility = { version = "4.0.0-dev", git = "https://github.com/John-Tonny/substrate", branch = "v.1837f423b4", default-features = false }
+
+# john
+pallet-scheduler = { version = "4.0.0-dev", git = "https://github.com/John-Tonny/substrate", branch = "v.1837f423b4", default-features = false }
+
 # Substrate Utility
 frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/John-Tonny/substrate", branch = "v.1837f423b4" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", git = "https://github.com/John-Tonny/substrate", branch = "v.1837f423b4" }

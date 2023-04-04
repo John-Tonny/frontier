@@ -379,7 +379,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             let isvalidator = sp_io::offchain::is_validator();
-            log::info!("test offchain roles: {}", isvalidator);
+            log::debug!("offchain roles: {}", isvalidator);
 
             if isvalidator {
 

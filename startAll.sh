@@ -3,7 +3,7 @@
 TAGS=$1
 
 BASEPATH=/opt/.frontier-data
-CHAIN=${BASEPATH}/testnet.json
+CHAIN=${BASEPATH}/mainnet.json
 
 CMD=./target/release/frontier-template-node
 
